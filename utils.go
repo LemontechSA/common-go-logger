@@ -43,7 +43,7 @@ func getLogLevel(level string) zapcore.Level {
 
 func createLogger(config Configuration, logger *zap.Logger) *zap.Logger {
 	host, _ := os.Hostname()
-	pid := os.Getegid()
+	pid := os.Getpid()
 
 	logger = logger.With(
 		zap.Int("pid", pid),
