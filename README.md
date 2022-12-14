@@ -2,7 +2,7 @@
 
 Standard logging library for golang projects
 
-## Instalation
+## Installation
 
 In order to use the library, you must create the configuration, a new logger instance and the methods you want to use.
 
@@ -32,7 +32,7 @@ func init() {
     ConsoleLevel: "info",
   }
 
-  Log = logging.NewLogger(configuration)
+  log = logging.NewLogger(configuration)
 }
 
 func Info(description string, message string, payload map[string]string) {
