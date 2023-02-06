@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"os"
 	"strconv"
 	"time"
@@ -26,22 +25,30 @@ func getEncoder() zapcore.Encoder {
 
 func getLogLevel(level string) zapcore.Level {
 	switch level {
+	case "debug":
+		return zapcore.DebugLevel
 	case "info":
 		return zapcore.InfoLevel
 	case "warn":
 		return zapcore.WarnLevel
-	case "debug":
-		return zapcore.DebugLevel
 	case "error":
 		return zapcore.ErrorLevel
 	case "fatal":
 		return zapcore.FatalLevel
 	default:
-		return zapcore.InfoLevel
+		return zapcore.DebugLevel
 	}
 }
 
-func createLogger(config Configuration, logger *zap.Logger) *zap.Logger {
+func createLogger(config Configuration) *zap.Logger {
+	level := getLogLevel(config.ConsoleLevel)
+	writer := zapcore.Lock(os.Stdout)
+	core := zapcore.NewCore(getEncoder(), writer, level)
+	logger := zap.New(
+		core,
+		zap.AddCallerSkip(2),
+		zap.AddCaller(),
+	)
 	host, _ := os.Hostname()
 	pid := os.Getpid()
 
@@ -66,24 +73,8 @@ func createLogger(config Configuration, logger *zap.Logger) *zap.Logger {
 		logger = logger.With(zap.String("project", config.Project))
 	}
 
-	return logger
-}
-
-func withContext(ctx context.Context, logger *zap.Logger) *zap.Logger {
-	if tID, exists := traceID(ctx); exists {
-		logger = logger.With(zap.String("trace_id", tID))
-	}
-
-	if rID, exists := requestID(ctx); exists {
-		logger = logger.With(zap.String("request_id", rID))
-	}
-
-	if sID, exists := sessionID(ctx); exists {
-		logger = logger.With(zap.String("session_id", sID))
-	}
-
-	if cName, exists := consumerName(ctx); exists {
-		logger = logger.With(zap.String("consumer_name", cName))
+	if config.Version != "" {
+		logger = logger.With(zap.String("version", config.Version))
 	}
 
 	return logger
@@ -103,4 +94,8 @@ func parserPayload(payload map[string]string) map[string]interface{} {
 	}
 
 	return parsedPayload
+}
+
+func convertUInt64ToString(id uint64) string {
+	return strconv.FormatUint(id, 10)
 }

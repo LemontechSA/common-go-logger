@@ -2,7 +2,6 @@ package logger
 
 import (
 	"context"
-	"os"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -10,13 +9,20 @@ import (
 
 // Logger is the contract for the logger
 type Logger interface {
-	Debug(description string, message string, payload map[string]string)
-	Info(description string, message string, payload map[string]string)
-	Warn(description string, message string, payload map[string]string)
-	Error(description string, message string, payload map[string]string)
-	Fatal(description string, message string, payload map[string]string)
-	SetContext(ctx context.Context)
-	ClearContext()
+	Debug(message string, action string, payload map[string]string)
+	Info(message string, action string, payload map[string]string)
+	Warn(message string, action string, payload map[string]string)
+	Error(message string, action string, payload map[string]string)
+	Fatal(message string, action string, payload map[string]string)
+}
+
+// ContextLogger is the contract for the context logger
+type ContextLogger interface {
+	Debug(ctx context.Context, message string, action string, payload map[string]string)
+	Info(ctx context.Context, message string, action string, payload map[string]string)
+	Warn(ctx context.Context, message string, action string, payload map[string]string)
+	Error(ctx context.Context, message string, action string, payload map[string]string)
+	Fatal(ctx context.Context, message string, action string, payload map[string]string)
 }
 
 // Configuration stores the config for the logger
@@ -26,126 +32,193 @@ type Configuration struct {
 	Team         string
 	Project      string
 	ConsoleLevel string
+	Version      string
 }
 
-type zapLogger struct {
+type genericLogger struct {
 	logger *zap.Logger
-	ctx    context.Context
+}
+
+type contextLogger struct {
+	logger *zap.Logger
+	config Configuration
 }
 
 // NewLogger returns an instance of logger
 func NewLogger(config Configuration) Logger {
-	ctx := context.TODO()
-	level := getLogLevel(config.ConsoleLevel)
-	writer := zapcore.Lock(os.Stdout)
-	core := zapcore.NewCore(getEncoder(), writer, level)
-	log := zap.New(
-		core,
-		zap.AddCallerSkip(2),
-		zap.AddCaller(),
-	)
-	logger := createLogger(config, log)
+	logger := createLogger(config)
 
-	return &zapLogger{logger, ctx}
+	return &genericLogger{logger}
 }
 
-func (l *zapLogger) Debug(description string, message string, payload map[string]string) {
-	if len(payload) > 0 {
-		parsedPayload := parserPayload(payload)
+// NewContextLogger returns an instance of context logger
+func NewContextLogger(config Configuration) ContextLogger {
+	logger := createLogger(config)
 
-		l.logger.Debug(
-			message,
-			zap.String("description", description),
-			zap.Any("payload", parsedPayload),
-		)
-	} else {
-		l.logger.Debug(
-			message,
-			zap.String("description", description),
-		)
+	return &contextLogger{logger, config}
+}
+
+func (l *genericLogger) Debug(message string, action string, payload map[string]string) {
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
 	}
-}
-
-func (l *zapLogger) Info(description string, message string, payload map[string]string) {
-	log := withContext(l.ctx, l.logger)
 
 	if len(payload) > 0 {
 		parsedPayload := parserPayload(payload)
 
-		log.Info(
-			message,
-			zap.String("description", description),
-			zap.Any("payload", parsedPayload),
-		)
-	} else {
-		log.Info(
-			message,
-			zap.String("description", description),
-		)
+		fields = append(fields, zap.Any("payload", parsedPayload))
 	}
+
+	l.logger.Debug(message, fields...)
 }
 
-func (l *zapLogger) Warn(description string, message string, payload map[string]string) {
-	log := withContext(l.ctx, l.logger)
+func (l *genericLogger) Info(message string, action string, payload map[string]string) {
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
 
 	if len(payload) > 0 {
 		parsedPayload := parserPayload(payload)
 
-		log.Warn(
-			message,
-			zap.String("description", description),
-			zap.Any("payload", parsedPayload),
-		)
-	} else {
-		log.Warn(
-			message,
-			zap.String("description", description),
-		)
+		fields = append(fields, zap.Any("payload", parsedPayload))
 	}
+
+	l.logger.Info(message, fields...)
 }
 
-func (l *zapLogger) Error(description string, message string, payload map[string]string) {
-	log := withContext(l.ctx, l.logger)
+func (l *genericLogger) Warn(message string, action string, payload map[string]string) {
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
 
 	if len(payload) > 0 {
 		parsedPayload := parserPayload(payload)
 
-		log.Error(
-			message,
-			zap.String("description", description),
-			zap.Any("payload", parsedPayload),
-		)
-	} else {
-		log.Error(
-			message,
-			zap.String("description", description),
-		)
+		fields = append(fields, zap.Any("payload", parsedPayload))
 	}
+
+	l.logger.Warn(message, fields...)
 }
 
-func (l *zapLogger) Fatal(description string, message string, payload map[string]string) {
-	log := withContext(l.ctx, l.logger)
+func (l *genericLogger) Error(message string, action string, payload map[string]string) {
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
 
 	if len(payload) > 0 {
 		parsedPayload := parserPayload(payload)
 
-		log.Fatal(
-			message,
-			zap.String("description", description),
-			zap.Any("payload", parsedPayload),
-		)
-	} else {
-		log.Fatal(
-			message,
-			zap.String("description", description),
-		)
+		fields = append(fields, zap.Any("payload", parsedPayload))
 	}
+
+	l.logger.Error(message, fields...)
 }
 
-func (l *zapLogger) SetContext(ctx context.Context) {
-	l.ctx = ctx
+func (l *genericLogger) Fatal(message string, action string, payload map[string]string) {
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
+
+	if len(payload) > 0 {
+		parsedPayload := parserPayload(payload)
+
+		fields = append(fields, zap.Any("payload", parsedPayload))
+	}
+
+	l.logger.Fatal(message, fields...)
 }
 
-func (l *zapLogger) ClearContext() {
-	l.ctx = context.TODO()
+func (l *contextLogger) Debug(ctx context.Context, message string, action string, payload map[string]string) {
+	log := withContext(ctx, l)
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
+
+	if len(payload) > 0 {
+		parsedPayload := parserPayload(payload)
+
+		fields = append(fields, zap.Any("payload", parsedPayload))
+	}
+
+	log.Debug(message, fields...)
+}
+
+func (l *contextLogger) Info(ctx context.Context, message string, action string, payload map[string]string) {
+	log := withContext(ctx, l)
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
+
+	if len(payload) > 0 {
+		parsedPayload := parserPayload(payload)
+
+		fields = append(fields, zap.Any("payload", parsedPayload))
+	}
+
+	log.Info(message, fields...)
+}
+
+func (l *contextLogger) Warn(ctx context.Context, message string, action string, payload map[string]string) {
+	log := withContext(ctx, l)
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
+
+	if len(payload) > 0 {
+		parsedPayload := parserPayload(payload)
+
+		fields = append(fields, zap.Any("payload", parsedPayload))
+	}
+
+	log.Warn(message, fields...)
+}
+
+func (l *contextLogger) Error(ctx context.Context, message string, action string, payload map[string]string) {
+	log := withContext(ctx, l)
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
+
+	if len(payload) > 0 {
+		parsedPayload := parserPayload(payload)
+
+		fields = append(fields, zap.Any("payload", parsedPayload))
+	}
+
+	log.Error(message, fields...)
+}
+
+func (l *contextLogger) Fatal(ctx context.Context, message string, action string, payload map[string]string) {
+	log := withContext(ctx, l)
+	fields := []zapcore.Field{}
+
+	if action != "" {
+		fields = append(fields, zap.String("action", action))
+	}
+
+	if len(payload) > 0 {
+		parsedPayload := parserPayload(payload)
+
+		fields = append(fields, zap.Any("payload", parsedPayload))
+	}
+
+	log.Fatal(message, fields...)
 }
