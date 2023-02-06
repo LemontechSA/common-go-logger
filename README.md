@@ -1,12 +1,14 @@
 # Common Go Logger
 
-Standard logging library for golang projects
+Standard logging library for golang projects.
 
 ## Installation
 
-In order to use the library, you must create the configuration, a new logger instance and the methods you want to use.
+In order to use the library, you must create the configuration, the loggers instances and the methods you want to use.
 
-More information about the methods and their uses below.
+If you use the Context logger you must import/export the logging contextKey you want to use.
+
+More information about the loggers, methods and their uses below.
 
 Example:
 
@@ -15,13 +17,19 @@ package logger
 
 import (
 	"context"
-	"net/http"
 	"os"
 
 	logging "github.com/LemontechSA/common-go-logger"
 )
 
-var log logging.Logger
+var genericLog logging.Logger
+var contextLog logging.ContextLogger
+
+var ContextKeyCorrelationID = logging.ContextKeyCorrelationID
+var ContextKeyCausationID = logging.ContextKeyCausationID
+var ContextKeyTenant = logging.ContextKeyTenant
+var ContextKeyUserID = logging.ContextKeyUserID
+var ContextKeyConsumer = logging.ContextKeyConsumer
 
 func init() {
   configuration := logging.Configuration{
@@ -30,47 +38,102 @@ func init() {
     Team:         "surveycorps",
     Project:      "te2eus",
     ConsoleLevel: "info",
+    Version:      "1",
   }
 
-  log = logging.NewLogger(configuration)
+  genericLog = logging.NewLogger(configuration)
+  contextLog = logging.NewContextLogger(configuration)
 }
 
-func Info(description string, message string, payload map[string]string) {
-	log.Info(description, message, payload)
+func Info(
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	genericLog.Info(message, action, payload)
 }
 
-func Warn(description string, message string, payload map[string]string) {
-	log.Warn(description, message, payload)
+func Warn(
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	genericLog.Warn(message, action, payload)
 }
 
-func Debug(description string, message string, payload map[string]string) {
-	log.Debug(description, message, payload)
+func Debug(
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	genericLog.Debug(message, action, payload)
 }
 
-func Error(description string, message string, payload map[string]string) {
-	log.Error(description, message, payload)
+func Error(
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	genericLog.Error(message, action, payload)
 }
 
-func Fatal(description string, message string, payload map[string]string) {
-	log.Fatal(description, message, payload)
+func Fatal(
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	genericLog.Fatal(message, action, payload)
 }
 
-func CreateRequestContext(req *http.Request) context.Context {
-	return logging.CreateRequestContext(req)
+func CtxDebug(
+	ctx context.Context,
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	contextLog.Debug(ctx, message, action, payload)
 }
 
-func SetContext(ctx context.Context) {
-	log.SetContext(ctx)
+func CtxInfo(
+	ctx context.Context,
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	contextLog.Info(ctx, message, action, payload)
 }
 
-func ClearContext() {
-	log.ClearContext()
+func CtxWarn(
+	ctx context.Context,
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	contextLog.Warn(ctx, message, action, payload)
+}
+
+func CtxError(
+	ctx context.Context,
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	contextLog.Error(ctx, message, action, payload)
+}
+
+func CtxFatal(
+	ctx context.Context,
+	message string,
+	action string,
+	payload map[string]string,
+) {
+	contextLog.Fatal(ctx, message, action, payload)
 }
 ```
 
 You can use `os.Getenv("ENV_NAME")` to get the configuration value dinamically from the environment vars.
 
-**NOTE: Do not forget to execute the command `go mod tidy` to install the library in the project**
+**NOTE: Do not forget to execute the command `go mod tidy` to install the library in the project.**
 
 ### Configuration Glossary
 
@@ -104,9 +167,13 @@ Options:
 
 The order is descending, so if you put the debug option, they will be displayed from the same level downwards, therefore info and warn will not be displayed.
 
+#### Version
+
+Version of the service.
+
 #### General
 
-If any or all of the options is left empty it will not appear in the log and the default value for `ConsoleLevel` is `info`.
+If any of the options is left empty it will not appear in the log and the default value for `ConsoleLevel` is `debug`.
 
 ## Usage examples
 
@@ -116,14 +183,14 @@ For all cases, the following fields will be automatically added to the log:
 - pid: proccess identifier.
 - host: host name.
 
-### Basic usage
+### Generic logger usage
 
 This applies to all log types, the only difference is the log level.
 
 Example with all the data:
 
 ```go
-logger.Info("Starting server", "We are ready to GO!", map[string]string{
+logger.Info("We are ready to GO!", "Starting server", map[string]string{
   "extra1": "test 1",
   "extra2": "test 2",
 })
@@ -143,7 +210,8 @@ The log will be:
   "environment": "development",
   "team": "surveycorps",
   "project": "te2eus",
-  "description": "Starting server",
+  "version": "1",
+  "action": "Starting server",
   "payload": { "extra1": "test 1", "extra2": "test 2" }
 }
 ```
@@ -168,11 +236,11 @@ The log will be:
   "environment": "development",
   "team": "surveycorps",
   "project": "te2eus",
-  "description": ""
+  "version": "1"
 }
 ```
 
-The payload data is the only one that will be omitted if it is empty, the description and the message will appear empty.
+The payload and action will be omitted if it is empty, the message will appear empty.
 
 Additionally, the payload has a function that parses certain fields, currently they are:
 
@@ -182,7 +250,7 @@ Example:
 
 If the duration field is sent with a string of numbers, it will be parsed to an int.
 
-**NOTE: The duration field must be a string of only numbers, example: "9876", if it contains letters like "9876 ms" the string can't be parsed and the field will be returned with the value 0, this is because the duration field is used to measure and calculate response times and must be an integer**
+**NOTE: The duration field must be a string of only numbers, example: "9876", if it contains letters like "9876 ms" the string can't be parsed and the field will be returned with the value 0, this is because the duration field is used to measure and calculate response times and must be an integer.**
 
 If can parse it:
 
@@ -206,7 +274,7 @@ The log will be:
   "environment": "development",
   "team": "surveycorps",
   "project": "te2eus",
-  "description": "",
+  "version": "1",
   "payload": { "duration": 9876 }
 }
 ```
@@ -233,36 +301,107 @@ The log will be:
   "environment": "development",
   "team": "surveycorps",
   "project": "te2eus",
-  "description": "",
+  "version": "1",
   "payload": { "duration": 0 }
 }
 ```
 
-### With traceability usage
+### Context logger usage
 
-If you want to add the header data in each request, you must use the `CreateRequestContext`, `SetContext` and `ClearContext` methods, creating a middleware that uses these functions so that they are automatically added in each request.
+It's the same as the generic log, the only difference is that it allows you to pass context as first argument to add extra values to the log.
 
-Allowed headers:
+Allowed context values:
 
-- trace_id
-- request_id
-- session_id
-- consumer_name
+- correlation_id
+- causation_id
+- tenant
+- user_id
+- consumer
+- Datadog trace_id
+- Datadog span_id
 
-Any other headers will be ignored.
+#### Correlation id
 
-Example with gin framework:
+A unique id for each request that must be passed to every system that processes this request. Logging this id will make it easier to find related logs across different systems/files etc.
+
+#### Causation id
+
+You can also use an id that determine a correct ordering of the events that happend in you system. [Read more](https://blog.arkency.com/correlation-id-and-causation-id-in-evented-systems).
+
+#### Tenant
+
+Name of the client/sub-domain.
+
+#### User id
+
+It will facilitate investigating if user creates an incident ticket.
+
+#### Consumer
+
+Name of the consumer service.
+
+#### Datadog trace id and span id
+
+Those values are injected to the request context by instrumenting Datadog and is used to correlate traces with logs.
+
+**NOTE: Any other context value will be ignored.**
+
+The library provides the context type keys that you must use to match the values with the log.
+
+Types:
+
+- ContextKeyCorrelationID
+- ContextKeyCausationID
+- ContextKeyTenant
+- ContextKeyUserID
+- ContextKeyConsumer
+
+**NOTE: Datadog's context keys are not provided because they are getting from their own span context, you don't have to do anything other than instrumenting your application with Datadog, the library will try to get those values for you.**
+
+#### How to inject values to context
+
+Because each framework operates in a different way, we don't not provided general functions or middlewares so it's up to you how to inject the values to the context.
+
+Anyways here are examples that demostrate how you could do it.
+
+Example with gin framework middleware:
 
 ```go
-func LoggerMiddleware() gin.HandlerFunc {
+func loggerMiddleware() gin.HandlerFunc {
   return func(c *gin.Context) {
-    ctx := logger.CreateRequestContext(c.Request)
+    var correlationId string
+    var causationId string
 
-    logger.SetContext(ctx)
+    if id, err := uuid.Parse(c.GetHeader("correlation_id")); err == nil && c.GetHeader("correlation_id") != "" {
+      correlationId = id.String()
+      causationId = uuid.New().String()
+    } else {
+      correlationId = uuid.New().String()
+      causationId = correlationId
+    }
+
+    ctx := c.Request.Context()
+
+    ctx = context.WithValue(ctx, logger.ContextKeyCorrelationID, correlationId)
+    ctx = context.WithValue(ctx, logger.ContextKeyCausationID, causationId)
+
+    consumer := c.GetHeader("consumer")
+
+    if consumer != "" {
+      ctx = context.WithValue(ctx, logger.ContextKeyConsumer, consumer)
+    }
+
+    if value, exists := c.Get("session"); exists {
+      session := value.(domain.Session)
+      tenant, _ := session.Destructure()
+
+      ctx = context.WithValue(ctx, logger.ContextKeyTenant, tenant)
+      ctx = context.WithValue(ctx, logger.ContextKeyUserID, session.ID)
+    }
+
+    c.Request = c.Request.WithContext(ctx)
 
     c.Next()
-
-    logger.ClearContext()
   }
 }
 ```
@@ -270,45 +409,38 @@ func LoggerMiddleware() gin.HandlerFunc {
 Router
 
 ```go
-router.Use(LoggerMiddleware())
+router.Use(loggerMiddleware())
 ...endpoints
 ```
 
-Example with fiber framework:
+Example with fiber framework middleware:
 
 ```go
 func loggerMiddleware(c *fiber.Ctx) error {
-	req, _ := http.NewRequest("", "", nil)
-	req.Header.Set("trace_id", c.Get("trace_id"))
-	req.Header.Set("request_id", c.Get("request_id"))
-	req.Header.Set("session_id", c.Get("session_id"))
-	req.Header.Set("consumer_name", c.Get("consumer_name"))
+  // TODO: implementing
 
-	ctx := logger.CreateRequestContext(req)
-
-	logger.SetContext(ctx)
-
-	c.Next()
-
-	logger.ClearContext()
-
-	return nil
+  return c.Next()
 }
 ```
 
 Router
 
 ```go
-router.Use(LoggerMiddleware)
+router.Use(loggerMiddleware)
 ...endpoints
 ```
 
-Assuming that we send all the headers in the request headers with some data `test`, when using any log that is within that same request, they will be automatically added to the log.
+Assuming that all values were injected to the context, when using any log the values will be automatically added to the log.
 
 Example:
 
 ```go
-logger.Error("Parsing schema", err.Error(), map[string]string{"status": "500"})
+logger.CtxError(
+  c.Request.Context(),
+  "Parsing schema",
+  err.Error(),
+  map[string]string{"status": "500"},
+)
 ```
 
 The log will be:
@@ -325,15 +457,19 @@ The log will be:
   "environment": "development",
   "team": "surveycorps",
   "project": "te2eus",
-  "trace_id": "test",
-  "request_id": "test",
-  "session_id": "test",
-  "consumer_name": "test",
-  "description": "Parsing schema",
+  "version": "1",
+  "correlation_id": "a6257245-ce50-4686-bfd1-668700fed150",
+  "causation_id": "a6257245-ce50-4686-bfd1-668700fed150",
+  "consumer": "pirithous",
+  "dd": {
+    "env": "development",
+    "service": "plutarch",
+    "span_id": "3890932795953018162",
+    "trace_id": "3890932795953018162",
+    "version": "1"
+  },
+  "ddsource": "go",
+  "action": "Parsing schema",
   "payload": { "status": "500" }
 }
 ```
-
-**IMPORTANT: Do not forget to clean the context at the end of the request, because if it is not done, all subsequent logs will have the values of the previous context.**
-
-**NOTE: Because each framework operates in a different way, the functions were left so that they can be applied in each of them and not a general middleware.**
