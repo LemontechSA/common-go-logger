@@ -1,4 +1,4 @@
-module github.com/LemontechSA/common-go-logger
+module github.com/LemontechSA/common-go-logger/v2
 
 go 1.19
 

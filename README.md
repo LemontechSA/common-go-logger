@@ -19,7 +19,7 @@ import (
 	"context"
 	"os"
 
-	logging "github.com/LemontechSA/common-go-logger"
+	logging "github.com/LemontechSA/common-go-logger/v2"
 )
 
 var genericLog logging.Logger
