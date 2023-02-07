@@ -417,7 +417,41 @@ Example with fiber framework middleware:
 
 ```go
 func loggerMiddleware(c *fiber.Ctx) error {
-  // TODO: implementing
+  var correlationId string
+  var causationId string
+
+  if id, err := uuid.Parse(c.Get("correlation_id")); err == nil && c.Get("correlation_id") != "" {
+    correlationId = id.String()
+    causationId = uuid.New().String()
+  } else {
+    correlationId = uuid.New().String()
+    causationId = correlationId
+  }
+
+  ctx := c.UserContext()
+
+  ctx = context.WithValue(ctx, logger.ContextKeyCorrelationID, correlationId)
+  ctx = context.WithValue(ctx, logger.ContextKeyCausationID, causationId)
+
+  consumer := c.Get("consumer")
+
+  if consumer != "" {
+    ctx = context.WithValue(ctx, logger.ContextKeyConsumer, consumer)
+  }
+
+  tenant := c.Get("tenant")
+
+  if tenant != "" {
+    ctx = context.WithValue(ctx, logger.ContextKeyTenant, tenant)
+  }
+
+  userId := c.Get("user_id")
+
+  if userId != "" {
+    ctx = context.WithValue(ctx, logger.ContextKeyUserID, userId)
+  }
+
+  c.SetUserContext(ctx)
 
   return c.Next()
 }
@@ -437,7 +471,7 @@ Example:
 ```go
 logger.CtxError(
   c.Request.Context(),
-  "Parsing schema",
+  "parsing schema",
   err.Error(),
   map[string]string{"status": "500"},
 )
@@ -469,7 +503,7 @@ The log will be:
     "version": "1"
   },
   "ddsource": "go",
-  "action": "Parsing schema",
+  "action": "parsing schema",
   "payload": { "status": "500" }
 }
 ```
