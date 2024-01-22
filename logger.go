@@ -18,11 +18,11 @@ type Logger interface {
 
 // ContextLogger is the contract for the context logger
 type ContextLogger interface {
-	Debug(ctx context.Context, message string, action string, payload map[string]string)
-	Info(ctx context.Context, message string, action string, payload map[string]string)
-	Warn(ctx context.Context, message string, action string, payload map[string]string)
-	Error(ctx context.Context, message string, action string, payload map[string]string)
-	Fatal(ctx context.Context, message string, action string, payload map[string]string)
+	CtxDebug(ctx context.Context, message string, action string, payload map[string]string)
+	CtxInfo(ctx context.Context, message string, action string, payload map[string]string)
+	CtxWarn(ctx context.Context, message string, action string, payload map[string]string)
+	CtxError(ctx context.Context, message string, action string, payload map[string]string)
+	CtxFatal(ctx context.Context, message string, action string, payload map[string]string)
 }
 
 // Configuration stores the config for the logger
@@ -138,7 +138,7 @@ func (l *genericLogger) Fatal(message string, action string, payload map[string]
 	l.logger.Fatal(message, fields...)
 }
 
-func (l *contextLogger) Debug(ctx context.Context, message string, action string, payload map[string]string) {
+func (l *contextLogger) CtxDebug(ctx context.Context, message string, action string, payload map[string]string) {
 	log := withContext(ctx, l)
 	fields := []zapcore.Field{}
 
@@ -155,7 +155,7 @@ func (l *contextLogger) Debug(ctx context.Context, message string, action string
 	log.Debug(message, fields...)
 }
 
-func (l *contextLogger) Info(ctx context.Context, message string, action string, payload map[string]string) {
+func (l *contextLogger) CtxInfo(ctx context.Context, message string, action string, payload map[string]string) {
 	log := withContext(ctx, l)
 	fields := []zapcore.Field{}
 
@@ -172,7 +172,7 @@ func (l *contextLogger) Info(ctx context.Context, message string, action string,
 	log.Info(message, fields...)
 }
 
-func (l *contextLogger) Warn(ctx context.Context, message string, action string, payload map[string]string) {
+func (l *contextLogger) CtxWarn(ctx context.Context, message string, action string, payload map[string]string) {
 	log := withContext(ctx, l)
 	fields := []zapcore.Field{}
 
@@ -189,7 +189,7 @@ func (l *contextLogger) Warn(ctx context.Context, message string, action string,
 	log.Warn(message, fields...)
 }
 
-func (l *contextLogger) Error(ctx context.Context, message string, action string, payload map[string]string) {
+func (l *contextLogger) CtxError(ctx context.Context, message string, action string, payload map[string]string) {
 	log := withContext(ctx, l)
 	fields := []zapcore.Field{}
 
@@ -206,7 +206,7 @@ func (l *contextLogger) Error(ctx context.Context, message string, action string
 	log.Error(message, fields...)
 }
 
-func (l *contextLogger) Fatal(ctx context.Context, message string, action string, payload map[string]string) {
+func (l *contextLogger) CtxFatal(ctx context.Context, message string, action string, payload map[string]string) {
 	log := withContext(ctx, l)
 	fields := []zapcore.Field{}
 
