@@ -35,5 +35,5 @@ updates:
       prefix: "chore"
       include: "scope"
     cooldown:
+      # semver-* cooldowns are not supported for github-actions.
       default-days: 3
-      semver-major-days: 14
