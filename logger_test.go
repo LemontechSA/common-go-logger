@@ -2,6 +2,7 @@ package logger
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -14,7 +15,9 @@ import (
 )
 
 // captureStdout swaps os.Stdout for a pipe while newLogger runs, so the
-// logger it builds writes to the pipe. It returns the decoded JSON lines.
+// logger it builds writes to the pipe. A goroutine drains the pipe while log
+// runs, so output larger than the pipe buffer cannot block the logger. It
+// returns the decoded JSON lines.
 func captureStdout(t *testing.T, newLogger func(), log func()) []map[string]interface{} {
 	t.Helper()
 
@@ -22,17 +25,37 @@ func captureStdout(t *testing.T, newLogger func(), log func()) []map[string]inte
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
+	// Closing an already closed file only returns an error, so this is safe
+	// after the explicit close below and covers every early exit.
+	t.Cleanup(func() {
+		writer.Close()
+		reader.Close()
+	})
 
-	original := os.Stdout
-	os.Stdout = writer
-	newLogger()
-	os.Stdout = original
+	var output bytes.Buffer
+	copied := make(chan error, 1)
+	go func() {
+		_, err := io.Copy(&output, reader)
+		copied <- err
+	}()
+
+	func() {
+		original := os.Stdout
+		os.Stdout = writer
+		defer func() { os.Stdout = original }()
+		newLogger()
+	}()
 
 	log()
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close pipe writer: %v", err)
+	}
+	if err := <-copied; err != nil {
+		t.Fatalf("read stdout: %v", err)
+	}
 
 	var lines []map[string]interface{}
-	scanner := bufio.NewScanner(reader)
+	scanner := bufio.NewScanner(&output)
 	for scanner.Scan() {
 		var line map[string]interface{}
 		if err := json.Unmarshal(scanner.Bytes(), &line); err != nil {
@@ -40,8 +63,8 @@ func captureStdout(t *testing.T, newLogger func(), log func()) []map[string]inte
 		}
 		lines = append(lines, line)
 	}
-	if err := scanner.Err(); err != nil && err != io.EOF {
-		t.Fatalf("read stdout: %v", err)
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("scan stdout: %v", err)
 	}
 
 	return lines
