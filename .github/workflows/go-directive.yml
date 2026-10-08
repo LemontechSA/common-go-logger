@@ -31,7 +31,9 @@ jobs:
           persist-credentials: false
       - name: Compare go and toolchain directives with the base commit
         run: |
-          directives() { grep -E '^(go|toolchain)[[:space:]]' || true; }
+          # Only the directive name and its value: comments and spacing on
+          # the line do not change the required Go version.
+          directives() { awk '$1 == "go" || $1 == "toolchain" { print $1, $2 }'; }
           base=$(git show HEAD^1:go.mod | directives)
           head=$(directives < go.mod)
           if [ "$base" != "$head" ]; then
