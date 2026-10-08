@@ -22,23 +22,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # A pull_request checkout is the merge commit; its first parent is the
+      # base commit it was built from, so both go.mod files match even when
+      # the job is re-run after the base branch has moved.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 2
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Compare go and toolchain directives with the base branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BASE_REF: ${{ github.base_ref }}
+      - name: Compare go and toolchain directives with the base commit
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/contents/go.mod?ref=${BASE_REF}" \
-            -H "Accept: application/vnd.github.raw" > "${RUNNER_TEMP}/base.mod"
-          base=$(go mod edit -json "${RUNNER_TEMP}/base.mod" | jq -c '{Go, Toolchain}')
-          head=$(go mod edit -json go.mod | jq -c '{Go, Toolchain}')
+          directives() { grep -E '^(go|toolchain)[[:space:]]' || true; }
+          base=$(git show HEAD^1:go.mod | directives)
+          head=$(directives < go.mod)
           if [ "$base" != "$head" ]; then
-            echo "::error file=go.mod::go/toolchain directive changed from $base to $head. Add the go-version-bump label if this is intended."
+            echo "::error file=go.mod::go/toolchain directive changed from '${base//$'\n'/; }' to '${head//$'\n'/; }'. Add the go-version-bump label if this is intended."
             exit 1
           fi
