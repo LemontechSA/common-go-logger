@@ -12,9 +12,10 @@ updates:
       include: "scope"
     cooldown:
       # A release younger than this is not proposed yet (a broken or
-      # compromised release is usually pulled within days).
+      # compromised release is usually pulled within days). No major-version
+      # cooldown: a Go major is a new module path (.../v2), which Dependabot
+      # never proposes, so major migrations are manual.
       default-days: 3
-      semver-major-days: 14
     groups:
       gomod-minor-patch:
         patterns:
@@ -33,3 +34,6 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
