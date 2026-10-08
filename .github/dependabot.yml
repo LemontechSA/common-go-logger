@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "gomod"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      # A release younger than this is not proposed yet (a broken or
+      # compromised release is usually pulled within days). No major-version
+      # cooldown: a Go major is a new module path (.../v2), which Dependabot
+      # never proposes, so major migrations are manual.
+      default-days: 3
+    groups:
+      gomod-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    cooldown:
+      # semver-* cooldowns are not supported for github-actions.
+      default-days: 3
