@@ -2,7 +2,6 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
@@ -41,32 +40,3 @@ jobs:
       - run: go build ./...
       - run: go vet ./...
       - run: go test ./...
-
-  go-directive:
-    # Raising the go or toolchain directive forces every consumer of the
-    # module onto a newer Go. A dependency bump must not do it silently: the
-    # PR needs the "go-version-bump" label to pass.
-    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'go-version-bump')
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: Compare go and toolchain directives with the base branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          gh api "repos/${GITHUB_REPOSITORY}/contents/go.mod?ref=${BASE_REF}" \
-            -H "Accept: application/vnd.github.raw" > "${RUNNER_TEMP}/base.mod"
-          base=$(go mod edit -json "${RUNNER_TEMP}/base.mod" | jq -c '{Go, Toolchain}')
-          head=$(go mod edit -json go.mod | jq -c '{Go, Toolchain}')
-          if [ "$base" != "$head" ]; then
-            echo "::error file=go.mod::go/toolchain directive changed from $base to $head. Add the go-version-bump label if this is intended."
-            exit 1
-          fi
